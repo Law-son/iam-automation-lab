@@ -95,11 +95,7 @@ Resources:
       Groups:
         - !Ref EC2UserGroup
       LoginProfile:
-        # Password retrieved securely from Secrets Manager
-        Password: !Sub
-          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
-          - SecretId: !Ref IAMUserPassword
-        # Forces user to change password on first login
+        Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
   # ec2-user2 → EC2 Group (same permissions as user1)
@@ -111,9 +107,7 @@ Resources:
       Groups:
         - !Ref EC2UserGroup
       LoginProfile:
-        Password: !Sub
-          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
-          - SecretId: !Ref IAMUserPassword
+        Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
   # s3-user → S3 Group only
@@ -125,9 +119,7 @@ Resources:
       Groups:
         - !Ref S3UserGroup
       LoginProfile:
-        Password: !Sub
-          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
-          - SecretId: !Ref IAMUserPassword
+        Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
 # -------------------------------------------------------
