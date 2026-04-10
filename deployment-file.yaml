@@ -1,0 +1,3 @@
+template-file-path: templates/iam-resources.yaml
+parameters: {}
+tags: {}

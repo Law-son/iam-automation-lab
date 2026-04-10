@@ -1,0 +1,160 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  IAM Lab - Automates creation of IAM users, groups, and a shared one-time
+  password stored securely in AWS Secrets Manager. Users are assigned
+  permissions via IAM groups following best practices.
+
+Resources:
+
+  # -------------------------------------------------------
+  # 1. One-Time Password stored in Secrets Manager
+  # -------------------------------------------------------
+  IAMUserPassword:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: iam-lab/one-time-password
+      Description: Temporary password for all IAM lab users
+      GenerateSecretString:
+        GenerateStringKey: password
+        PasswordLength: 16
+        ExcludeCharacters: '"@/\'
+        RequireEachIncludedType: true
+
+  # -------------------------------------------------------
+  # 2. S3 IAM Group (List Buckets Permission)
+  # -------------------------------------------------------
+  S3UserGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: S3UserGroup
+
+  S3GroupPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: S3ListBucketsPolicy
+      Groups:
+        - !Ref S3UserGroup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: ListBucketsAccess
+            Effect: Allow
+            Action:
+              - s3:ListAllMyBuckets
+              - s3:GetBucketLocation
+            Resource: "*"
+
+  # -------------------------------------------------------
+  # 3. EC2 IAM Group (List + Create Instances)
+  # -------------------------------------------------------
+  EC2UserGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: EC2UserGroup
+
+  EC2GroupPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2ListAndCreatePolicy
+      Groups:
+        - !Ref EC2UserGroup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Read-only EC2 permissions
+          - Sid: EC2ReadAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceTypes
+              - ec2:DescribeImages
+              - ec2:DescribeKeyPairs
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+            Resource: "*"
+
+          # Create EC2 instances
+          - Sid: EC2RunInstances
+            Effect: Allow
+            Action:
+              - ec2:RunInstances
+              - ec2:CreateTags
+            Resource: "*"
+
+  # -------------------------------------------------------
+  # 4. IAM Users (with Console Access)
+  # -------------------------------------------------------
+
+  # ec2-user1 → EC2 Group
+  EC2User1:
+    Type: AWS::IAM::User
+    DependsOn: IAMUserPassword
+    Properties:
+      UserName: ec2-user1
+      Groups:
+        - !Ref EC2UserGroup
+      LoginProfile:
+        # Password retrieved securely from Secrets Manager
+        Password: !Sub
+          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
+          - SecretId: !Ref IAMUserPassword
+        # Forces user to change password on first login
+        PasswordResetRequired: true
+
+  # ec2-user2 → EC2 Group (same permissions as user1)
+  EC2User2:
+    Type: AWS::IAM::User
+    DependsOn: IAMUserPassword
+    Properties:
+      UserName: ec2-user2
+      Groups:
+        - !Ref EC2UserGroup
+      LoginProfile:
+        Password: !Sub
+          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
+          - SecretId: !Ref IAMUserPassword
+        PasswordResetRequired: true
+
+  # s3-user → S3 Group only
+  S3User:
+    Type: AWS::IAM::User
+    DependsOn: IAMUserPassword
+    Properties:
+      UserName: s3-user
+      Groups:
+        - !Ref S3UserGroup
+      LoginProfile:
+        Password: !Sub
+          - "{{resolve:secretsmanager:${SecretId}:SecretString:password}}"
+          - SecretId: !Ref IAMUserPassword
+        PasswordResetRequired: true
+
+# -------------------------------------------------------
+# Outputs (Useful for verification & demo)
+# -------------------------------------------------------
+Outputs:
+
+  PasswordSecretARN:
+    Description: ARN of the Secrets Manager secret holding the one-time password
+    Value: !Ref IAMUserPassword
+
+  EC2UserGroupName:
+    Description: Name of the EC2 IAM group
+    Value: !Ref EC2UserGroup
+
+  S3UserGroupName:
+    Description: Name of the S3 IAM group
+    Value: !Ref S3UserGroup
+
+  EC2User1Name:
+    Description: IAM User ec2-user1
+    Value: !Ref EC2User1
+
+  EC2User2Name:
+    Description: IAM User ec2-user2
+    Value: !Ref EC2User2
+
+  S3UserName:
+    Description: IAM User s3-user
+    Value: !Ref S3User
