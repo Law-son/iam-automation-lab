@@ -15,6 +15,7 @@ Resources:
       Name: iam-lab/one-time-password
       Description: Temporary password for all IAM lab users
       GenerateSecretString:
+        SecretStringTemplate: '{"password": "PLACEHOLDER"}'
         GenerateStringKey: password
         PasswordLength: 16
         ExcludeCharacters: '"@/\'
