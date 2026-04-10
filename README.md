@@ -66,5 +66,3 @@ aws secretsmanager get-secret-value \
 ```bash
 aws cloudformation delete-stack --stack-name iam-automation-lab
 ```
-
-> **Note:** The Secrets Manager secret may need to be manually deleted if it has a deletion protection window.
