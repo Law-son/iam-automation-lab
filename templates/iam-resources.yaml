@@ -73,6 +73,10 @@ Resources:
               - ec2:DescribeSecurityGroups
               - ec2:DescribeSubnets
               - ec2:DescribeVpcs
+              - ec2:DescribeAvailabilityZones
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVolumes
+              - ec2:DescribeTags
             Resource: "*"
 
           # Create EC2 instances
@@ -122,6 +126,22 @@ Resources:
       LoginProfile:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
+
+IAMSelfChangePasswordPolicy:
+  Type: AWS::IAM::Policy
+  Properties:
+    PolicyName: AllowSelfChangePassword
+    Groups:
+      - !Ref EC2UserGroup
+      - !Ref S3UserGroup
+    PolicyDocument:
+      Version: "2012-10-17"
+      Statement:
+        - Effect: Allow
+          Action:
+            - iam:ChangePassword
+            - iam:GetAccountPasswordPolicy
+          Resource: !Sub "arn:aws:iam::${AWS::AccountId}:user/${aws:username}"
 
 # -------------------------------------------------------
 # Outputs (Useful for verification & demo)
