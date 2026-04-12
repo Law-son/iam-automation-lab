@@ -64,5 +64,5 @@ aws secretsmanager get-secret-value \
 ## Cleanup
 
 ```bash
-aws cloudformation delete-stack --stack-name iam-automation-lab
+aws cloudformation delete-stack --stack-name iam-automation-lab.
 ```
