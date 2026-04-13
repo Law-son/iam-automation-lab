@@ -127,21 +127,29 @@ Resources:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
-IAMSelfChangePasswordPolicy:
-  Type: AWS::IAM::Policy
-  Properties:
-    PolicyName: AllowSelfChangePassword
-    Groups:
-      - !Ref EC2UserGroup
-      - !Ref S3UserGroup
-    PolicyDocument:
-      Version: "2012-10-17"
-      Statement:
-        - Effect: Allow
-          Action:
-            - iam:ChangePassword
-            - iam:GetAccountPasswordPolicy
-          Resource: !Sub "arn:aws:iam::${AWS::AccountId}:user/${aws:username}"
+  # -------------------------------------------------------
+  # 5. Self-Service Password Change Policy
+  # -------------------------------------------------------
+  IAMSelfChangePasswordPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: AllowSelfChangePassword
+      Groups:
+        - !Ref EC2UserGroup
+        - !Ref S3UserGroup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - iam:ChangePassword
+              - iam:GetAccountPasswordPolicy
+            Resource: !Join
+              - ''
+              - - 'arn:aws:iam::'
+                - !Ref 'AWS::AccountId'
+                - ':user/$'
+                - '{aws:username}'
 
 # -------------------------------------------------------
 # Outputs (Useful for verification & demo)
