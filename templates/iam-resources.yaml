@@ -88,43 +88,10 @@ Resources:
             Resource: "*"
 
   # -------------------------------------------------------
-  # 3b. EC2 Read-Only IAM Group (No Create Instances)
-  # -------------------------------------------------------
-  EC2ReadOnlyGroup:
-    Type: AWS::IAM::Group
-    Properties:
-      GroupName: EC2ReadOnlyGroup
-
-  EC2ReadOnlyPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: EC2ReadOnlyPolicy
-      Groups:
-        - !Ref EC2ReadOnlyGroup
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          - Sid: EC2ReadAccess
-            Effect: Allow
-            Action:
-              - ec2:DescribeInstances
-              - ec2:DescribeInstanceTypes
-              - ec2:DescribeImages
-              - ec2:DescribeKeyPairs
-              - ec2:DescribeSecurityGroups
-              - ec2:DescribeSubnets
-              - ec2:DescribeVpcs
-              - ec2:DescribeAvailabilityZones
-              - ec2:DescribeNetworkInterfaces
-              - ec2:DescribeVolumes
-              - ec2:DescribeTags
-            Resource: "*"
-
-  # -------------------------------------------------------
   # 4. IAM Users (with Console Access)
   # -------------------------------------------------------
 
-  # ec2-user1 → EC2 Group
+  # ec2-user1 → EC2 Group (full permissions)
   EC2User1:
     Type: AWS::IAM::User
     DependsOn: IAMUserPassword
@@ -136,17 +103,27 @@ Resources:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
-  # ec2-user2 → EC2 Read-Only Group
+  # ec2-user2 → EC2 Group BUT with explicit deny on RunInstances
   EC2User2:
     Type: AWS::IAM::User
     DependsOn: IAMUserPassword
     Properties:
       UserName: ec2-user2
       Groups:
-        - !Ref EC2ReadOnlyGroup
+        - !Ref EC2UserGroup
       LoginProfile:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
+      Policies:
+        - PolicyName: DenyEC2CreateInstances
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ExplicitDenyRunInstances
+                Effect: Deny
+                Action:
+                  - ec2:RunInstances
+                Resource: "*"
 
   # s3-user → S3 Group only
   S3User:
@@ -154,17 +131,6 @@ Resources:
     DependsOn: IAMUserPassword
     Properties:
       UserName: s3-user
-      Groups:
-        - !Ref S3UserGroup
-      LoginProfile:
-        Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
-        PasswordResetRequired: true
-
-  S3User1:
-    Type: AWS::IAM::User
-    DependsOn: IAMUserPassword
-    Properties:
-      UserName: s4-user
       Groups:
         - !Ref S3UserGroup
       LoginProfile:
@@ -180,7 +146,6 @@ Resources:
       PolicyName: AllowSelfChangePassword
       Groups:
         - !Ref EC2UserGroup
-        - !Ref EC2ReadOnlyGroup
         - !Ref S3UserGroup
       PolicyDocument:
         Version: "2012-10-17"
@@ -193,8 +158,7 @@ Resources:
               - ''
               - - 'arn:aws:iam::'
                 - !Ref 'AWS::AccountId'
-                - ':user/$'
-                - '{aws:username}'
+                - ':user/${aws:username}'
 
 # -------------------------------------------------------
 # Outputs (Useful for verification & demo)
