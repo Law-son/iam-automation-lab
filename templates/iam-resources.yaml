@@ -160,6 +160,17 @@ Resources:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
+  S3User1:
+    Type: AWS::IAM::User
+    DependsOn: IAMUserPassword
+    Properties:
+      UserName: s4-user
+      Groups:
+        - !Ref S3UserGroup
+      LoginProfile:
+        Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
+        PasswordResetRequired: true
+
   # -------------------------------------------------------
   # 5. Self-Service Password Change Policy
   # -------------------------------------------------------
