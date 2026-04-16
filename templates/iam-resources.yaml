@@ -88,6 +88,39 @@ Resources:
             Resource: "*"
 
   # -------------------------------------------------------
+  # 3b. EC2 Read-Only IAM Group (No Create Instances)
+  # -------------------------------------------------------
+  EC2ReadOnlyGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: EC2ReadOnlyGroup
+
+  EC2ReadOnlyPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: EC2ReadOnlyPolicy
+      Groups:
+        - !Ref EC2ReadOnlyGroup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EC2ReadAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceTypes
+              - ec2:DescribeImages
+              - ec2:DescribeKeyPairs
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+              - ec2:DescribeAvailabilityZones
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVolumes
+              - ec2:DescribeTags
+            Resource: "*"
+
+  # -------------------------------------------------------
   # 4. IAM Users (with Console Access)
   # -------------------------------------------------------
 
@@ -103,14 +136,14 @@ Resources:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
-  # ec2-user2 → EC2 Group (same permissions as user1)
+  # ec2-user2 → EC2 Read-Only Group
   EC2User2:
     Type: AWS::IAM::User
     DependsOn: IAMUserPassword
     Properties:
       UserName: ec2-user2
       Groups:
-        - !Ref EC2UserGroup
+        - !Ref EC2ReadOnlyGroup
       LoginProfile:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
@@ -136,6 +169,7 @@ Resources:
       PolicyName: AllowSelfChangePassword
       Groups:
         - !Ref EC2UserGroup
+        - !Ref EC2ReadOnlyGroup
         - !Ref S3UserGroup
       PolicyDocument:
         Version: "2012-10-17"
