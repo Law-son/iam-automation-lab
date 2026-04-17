@@ -2,7 +2,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   IAM Lab - Automates creation of IAM users, groups, and a shared one-time
   password stored securely in AWS Secrets Manager. Users are assigned
-  permissions via IAM groups following best practices.
+  permissions via IAM groups following best practices. ec2-user2 is restricted
+  from creating EC2 instances via a permission boundary.
 
 Resources:
 
@@ -88,10 +89,50 @@ Resources:
             Resource: "*"
 
   # -------------------------------------------------------
-  # 4. IAM Users (with Console Access)
+  # 4. Permission Boundary for ec2-user2
+  #    Defines the MAXIMUM permissions ec2-user2 can ever have.
+  #    ec2:RunInstances is intentionally excluded, so even though
+  #    EC2UserGroup grants it, ec2-user2 cannot exercise it.
+  # -------------------------------------------------------
+  EC2User2PermissionBoundary:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: EC2ReadOnlyBoundary
+      Description: >
+        Permission boundary for ec2-user2. Caps effective permissions to
+        EC2 read-only actions and self-service password management.
+        ec2:RunInstances is not listed here, so it can never be exercised
+        regardless of what group policies allow.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowEC2ReadOnly
+            Effect: Allow
+            Action:
+              - ec2:DescribeInstances
+              - ec2:DescribeInstanceTypes
+              - ec2:DescribeImages
+              - ec2:DescribeKeyPairs
+              - ec2:DescribeSecurityGroups
+              - ec2:DescribeSubnets
+              - ec2:DescribeVpcs
+              - ec2:DescribeAvailabilityZones
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DescribeVolumes
+              - ec2:DescribeTags
+            Resource: "*"
+          - Sid: AllowSelfPasswordManagement
+            Effect: Allow
+            Action:
+              - iam:ChangePassword
+              - iam:GetAccountPasswordPolicy
+            Resource: "*"
+
+  # -------------------------------------------------------
+  # 5. IAM Users (with Console Access)
   # -------------------------------------------------------
 
-  # ec2-user1 → EC2 Group (full permissions)
+  # ec2-user1 → EC2 Group (full permissions, no boundary)
   EC2User1:
     Type: AWS::IAM::User
     DependsOn: IAMUserPassword
@@ -103,27 +144,20 @@ Resources:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
 
-  # ec2-user2 → EC2 Group BUT with explicit deny on RunInstances
+  # ec2-user2 → EC2 Group + Permission Boundary (read-only effective permissions)
   EC2User2:
     Type: AWS::IAM::User
-    DependsOn: IAMUserPassword
+    DependsOn:
+      - IAMUserPassword
+      - EC2User2PermissionBoundary
     Properties:
       UserName: ec2-user2
       Groups:
         - !Ref EC2UserGroup
+      PermissionsBoundary: !Ref EC2User2PermissionBoundary
       LoginProfile:
         Password: !Sub "{{resolve:secretsmanager:${IAMUserPassword}:SecretString:password}}"
         PasswordResetRequired: true
-      Policies:
-        - PolicyName: DenyEC2CreateInstances
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Sid: ExplicitDenyRunInstances
-                Effect: Deny
-                Action:
-                  - ec2:RunInstances
-                Resource: "*"
 
   # s3-user → S3 Group only
   S3User:
@@ -138,7 +172,7 @@ Resources:
         PasswordResetRequired: true
 
   # -------------------------------------------------------
-  # 5. Self-Service Password Change Policy
+  # 6. Self-Service Password Change Policy
   # -------------------------------------------------------
   IAMSelfChangePasswordPolicy:
     Type: AWS::IAM::Policy
@@ -176,6 +210,10 @@ Outputs:
   S3UserGroupName:
     Description: Name of the S3 IAM group
     Value: !Ref S3UserGroup
+
+  EC2User2BoundaryARN:
+    Description: ARN of the permission boundary applied to ec2-user2
+    Value: !Ref EC2User2PermissionBoundary
 
   EC2User1Name:
     Description: IAM User ec2-user1
